@@ -9,7 +9,7 @@ void main() {
 }
 
 class PadelProApp extends StatelessWidget {
-  const PadelProApp({Key? key}) : super(key: key);
+  const PadelProApp({super.key});
 
   @override
   Widget build(BuildContext context) {

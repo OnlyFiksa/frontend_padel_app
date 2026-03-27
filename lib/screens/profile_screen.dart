@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
+import '../config/api_config.dart';
 import 'login_screen.dart'; 
 import 'edit_profile_screen.dart'; 
+import 'history_screen.dart'; // IMPORT HISTORY SCREEN!
 import '../services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -18,36 +21,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _fullName = "Memuat...";
   String? _imagePath;
   
-  final String _totalBookings = "12";
-  final String _totalHours = "24";
+  // STATISTIK DINAMIS! 🔥
+  String _totalBookings = "0";
+  String _totalHours = "0";
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _fetchProfileStats(); // Panggil API Statistik!
   }
 
-  // Tarik data terbaru dari memori HP
   Future<void> _loadUserData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       _fullName = prefs.getString('userName') ?? 'Pemain Padel'; 
-      _imagePath = prefs.getString('profileImagePath'); // Ambil path fotonya
+      _imagePath = prefs.getString('profileImagePath'); 
     });
   }
 
-  // Pop-up Ubah Password (FINAL: Sudah terhubung dengan input ketikan)
+  // FUNGSI PENARIK STATISTIK DARI CI4!
+  Future<void> _fetchProfileStats() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      int userId = prefs.getInt('userId') ?? 1;
+
+      final dio = Dio(BaseOptions(
+        baseUrl: ApiConfig.baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+      ));
+
+      final response = await dio.get('/profile/stats/$userId');
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          setState(() {
+            _totalBookings = response.data['data']['total_bookings'].toString();
+            _totalHours = response.data['data']['total_hours'].toString();
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetch profile stats: $e");
+    }
+  }
+
+  // 🔥 FUNGSI UBAH PASSWORD BEBAS BUG (ANTI-CRASH) 🔥
   void _showChangePasswordDialog() {
-    // Controller untuk menangkap teks password baru
+    // Controller Password Baru & Lama
     TextEditingController newPasswordController = TextEditingController();
+    TextEditingController oldPasswordController = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) { // Bedakan nama context-nya biar gak bentrok
         bool obscureOld = true;
         bool obscureNew = true;
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (stateContext, setState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text('Ubah Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
@@ -55,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
+                    controller: oldPasswordController, 
                     obscureText: obscureOld,
                     decoration: InputDecoration(
                       hintText: 'Password Lama',
@@ -68,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                    controller: newPasswordController, // Controller dipasang di sini
+                    controller: newPasswordController, 
                     obscureText: obscureNew,
                     decoration: InputDecoration(
                       hintText: 'Password Baru',
@@ -84,29 +116,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Batal', style: TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
                   onPressed: () async {
                     String realNewPassword = newPasswordController.text;
 
-                    // Validasi panjang password
                     if (realNewPassword.isEmpty || realNewPassword.length < 6) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password baru minimal 6 karakter!'), backgroundColor: Colors.red));
+                      ScaffoldMessenger.of(stateContext).showSnackBar(
+                        const SnackBar(content: Text('Password baru minimal 6 karakter!'), backgroundColor: Colors.red)
+                      );
                       return; 
                     }
 
-                    Navigator.pop(context); // Tutup pop up
+                    // 🔥 TANGKAP KURIR NOTIFIKASI SEBELUM DIALOG DITUTUP 🔥
+                    final messenger = ScaffoldMessenger.of(context); 
+                    
+                    // SEKARANG BARU BOLEH TUTUP DIALOG
+                    Navigator.pop(dialogContext); 
 
+                    // PROSES API
                     AuthService authService = AuthService();
-                    // Tembak API dengan password yang diketik user
                     bool isSuccess = await authService.updatePassword(realNewPassword); 
 
+                    // TAMPILKAN NOTIFIKASI PAKAI KURIR YANG SUDAH DITANGKAP
                     if (isSuccess) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password berhasil diubah di database!'), backgroundColor: Colors.green));
+                      messenger.showSnackBar(const SnackBar(content: Text('Password berhasil diubah di database!'), backgroundColor: Colors.green));
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal mengubah password.'), backgroundColor: Colors.red));
+                      messenger.showSnackBar(const SnackBar(content: Text('Gagal mengubah password.'), backgroundColor: Colors.red));
                     }
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
@@ -170,7 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
                         ),
                         child: _imagePath != null 
-                          ? ClipOval(child: Image.file(File(_imagePath!), fit: BoxFit.cover)) // Tampilkan Foto!
+                          ? ClipOval(child: Image.file(File(_imagePath!), fit: BoxFit.cover)) 
                           : const Icon(Icons.person, size: 60, color: Colors.white),
                         ),
                       Positioned(
@@ -213,13 +251,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   _buildMenuOption(Icons.person_outline, 'Ubah Profile', onTap: () async {
-                    // Await di sini penting! Biar pas balik dari Edit, layarnya nge-refresh otomatis
                     await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfileScreen()));
                     _loadUserData(); 
                   }),
                   _buildMenuOption(Icons.lock_outline, 'Ubah Password', onTap: _showChangePasswordDialog),
-                  _buildMenuOption(Icons.history, 'Riwayat Transaksi', onTap: () {}),
-                  _buildMenuOption(Icons.help_outline, 'Pusat Bantuan', onTap: () {}),
+                  
+                  // 🔥 RIWAYAT TRANSAKSI AKTIF! 🔥
+                  _buildMenuOption(Icons.history, 'Riwayat Transaksi', onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+                  }),
+                  
                   const SizedBox(height: 24),
                   const Divider(color: Color(0xFFF0F0F0), height: 1),
                   const SizedBox(height: 24),

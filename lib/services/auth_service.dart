@@ -17,11 +17,11 @@ class AuthService {
   // ==========================================
   // FUNGSI LOGIN
   // ==========================================
-  Future<bool> login(String username, String password) async {
+ Future<bool> login(String username, String password) async {
     try {
       final response = await _dio.post(
         '/login',
-        data: FormData.fromMap({
+         data: FormData.fromMap({
           'username': username, 
           'password': password,
         }),
@@ -39,6 +39,9 @@ class AuthService {
         await prefs.setInt('userId', int.parse(userData['id'].toString()));
         await prefs.setString('userName', userData['full_name']); 
         await prefs.setString('userEmail', userData['email']);
+        
+        // --- FITUR BARU: TANDAI BAHWA USER SUDAH LOGIN ---
+        await prefs.setBool('isLoggedIn', true); 
 
         return true;
       }
@@ -95,46 +98,55 @@ class AuthService {
   }
 
   // ==========================================
-  // FUNGSI UPDATE PROFILE
+  // FITUR BARU: FUNGSI LOGOUT
   // ==========================================
-  Future<bool> updateProfile(String fullName, String email) async {
+  Future<void> logout() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    // Hapus semua data (KTP) user dari memori HP
+    await prefs.clear(); 
+  }
+
+  // --- FUNGSI UPDATE PROFILE ---
+  Future<bool> updateProfile(String name, String email) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      int userId = prefs.getInt('userId') ?? 0; // Ambil ID asli yang lagi login
+      int userId = prefs.getInt('userId') ?? 1; // Tarik ID asli user!
 
-      final response = await _dio.post(
-        '/profile/update',
-        data: FormData.fromMap({
-          'user_id': userId, // Kirim ID asli ke CI4
-          'full_name': fullName,
-          'email': email,
-        }),
-      );
-      return response.statusCode == 200;
+      final dio = Dio(BaseOptions(baseUrl: ApiConfig.baseUrl));
+      final response = await dio.post('/profile/update', data: {
+        'user_id': userId,
+        'full_name': name, // Harus full_name biar Backend ngerti!
+        'email': email,
+      });
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
     } catch (e) {
-      print('Error update profile: $e');
+      print("Error update profile API: $e");
       return false;
     }
   }
 
-  // ==========================================
-  // FUNGSI UPDATE PASSWORD
-  // ==========================================
+  // --- FUNGSI UPDATE PASSWORD ---
   Future<bool> updatePassword(String newPassword) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      int userId = prefs.getInt('userId') ?? 0; // Ambil ID asli yang lagi login
+      int userId = prefs.getInt('userId') ?? 1; // Tarik ID asli user!
 
-      final response = await _dio.post(
-        '/password/update',
-        data: FormData.fromMap({
-          'user_id': userId, // Kirim ID asli ke CI4
-          'new_password': newPassword,
-        }),
-      );
-      return response.statusCode == 200;
+      final dio = Dio(BaseOptions(baseUrl: ApiConfig.baseUrl));
+      final response = await dio.post('/password/update', data: {
+        'user_id': userId,
+        'new_password': newPassword, // Harus new_password biar Backend ngerti!
+      });
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
     } catch (e) {
-      print('Error update password: $e');
+      print("Error update password API: $e");
       return false;
     }
   }

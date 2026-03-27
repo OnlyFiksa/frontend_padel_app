@@ -4,25 +4,10 @@ import 'dart:ui'; // Untuk efek blur (glassmorphism)
 import 'dashboard_screen.dart';
 import 'explore_screen.dart';
 import 'profile_screen.dart';
-
-// --- Placeholder KHUSUS untuk History (Karena masih dikerjakan temanmu) ---
-class HistoryScreen extends StatelessWidget {
-  const HistoryScreen({Key? key}) : super(key: key);
-  @override
-  Widget build(BuildContext context) => const Scaffold(
-    body: Center(
-      child: Text(
-        'History / Bookings\n(On Progress)', 
-        textAlign: TextAlign.center, 
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)
-      ),
-    ),
-  );
-}
-// --------------------------------------------------------------------------
+import 'history_screen.dart'; // Sekarang ini akan narik file history_screen.dart yang asli!
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -35,7 +20,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pages = [
     const DashboardScreen(),
     const ExploreScreen(),
-    const HistoryScreen(), 
+    const HistoryScreen(), // Otomatis mengarah ke file baru
     const ProfileScreen(),
   ];
 

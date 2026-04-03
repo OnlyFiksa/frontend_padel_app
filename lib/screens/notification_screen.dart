@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -11,47 +14,72 @@ class _NotificationScreenState extends State<NotificationScreen> {
   final Color primaryColor = const Color(0xFF0d59f2);
   final Color bgColor = const Color(0xFFF5F6F8);
 
-  // Data notifikasi kita pindahkan ke dalam State agar bisa diubah
-  List<Map<String, dynamic>> notifications = [
-    {
-      "title": "Booking Confirmed! 🎉",
-      "message": "Your booking for Court #4 at PadelPro Center is confirmed for today at 18:30.",
-      "time": "Just now",
-      "icon": Icons.check_circle,
-      "color": Colors.green,
-      "isRead": false, // Ini yang bikin titik merahnya muncul
-    },
-    {
-      "title": "Match Reminder ⏰",
-      "message": "Don't forget! Your semi-final match at Club de Padel Madrid starts in 2 hours.",
-      "time": "2 hours ago",
-      "icon": Icons.sports_tennis,
-      "color": const Color(0xFF0d59f2),
-      "isRead": false, // Ini juga
-    },
-    {
-      "title": "Summer Pro League Promo ☀️",
-      "message": "Get 20% off your next booking this weekend. Claim your offer now!",
-      "time": "1 day ago",
-      "icon": Icons.local_offer,
-      "color": Colors.orange,
-      "isRead": true,
-    },
-    {
-      "title": "System Update ⚙️",
-      "message": "We've updated our app to provide you with a smoother booking experience.",
-      "time": "3 days ago",
-      "icon": Icons.system_update,
-      "color": Colors.grey,
-      "isRead": true,
-    },
-  ];
+  List<Map<String, dynamic>> notifications = [];
+  bool _isLoading = true; // Tambahkan efek loading
 
-  // LOGIKA UNTUK MENGHAPUS SEMUA TITIK MERAH
+  @override
+  void initState() {
+    super.initState();
+    _fetchBookingAsNotifications(); // Panggil API saat layar dibuka
+  }
+
+  // LOGIKA BARU: Tembak API Riwayat Booking & Jadikan Notifikasi 🔥
+  Future<void> _fetchBookingAsNotifications() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      int userId = prefs.getInt('userId') ?? 0;
+
+      if (userId == 0) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final dio = Dio(BaseOptions(baseUrl: ApiConfig.baseUrl));
+      // Nembak rute get user bookings yang ada di Routes.php kamu
+      final response = await dio.get('/bookings/user/$userId');
+
+      if (response.statusCode == 200) {
+        List<dynamic> bookingData = response.data['data'] ?? [];
+        List<Map<String, dynamic>> fetchedNotifs = [];
+
+        // Loop data booking dan ubah bentuknya jadi notifikasi
+        for (var item in bookingData) {
+          fetchedNotifs.add({
+            "title": "Booking Confirmed! 🎉",
+            // Pastikan nama key json ('venue_name', 'booking_date', dll) sesuai dengan response API kamu ya!
+            "message": "Your booking at ${item['venue_name'] ?? 'Padel Court'} on ${item['booking_date'] ?? ''} at ${item['start_time'] ?? ''} is confirmed.",
+            "time": "Recent", // Bisa diganti kalau ada field 'created_at' dari DB
+            "icon": Icons.check_circle,
+            "color": Colors.green,
+            "isRead": false,
+          });
+        }
+
+        // Tambahin promo statis 1 biji biar kelihatan rame
+        fetchedNotifs.add({
+          "title": "Summer Pro League Promo ☀️",
+          "message": "Get 20% off your next booking this weekend. Claim your offer now!",
+          "time": "System",
+          "icon": Icons.local_offer,
+          "color": Colors.orange,
+          "isRead": true,
+        });
+
+        setState(() {
+          notifications = fetchedNotifs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Error fetch notif: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
   void markAllAsRead() {
     setState(() {
       for (var notif in notifications) {
-        notif['isRead'] = true; // Ubah semua status menjadi sudah dibaca
+        notif['isRead'] = true;
       }
     });
   }
@@ -76,10 +104,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           IconButton(
             icon: const Icon(Icons.done_all, color: Colors.blue),
             onPressed: () {
-              // PANGGIL FUNGSINYA DI SINI KETIKA TOMBOL DIKLIK
               markAllAsRead();
-              
-              // Kasih notifikasi kecil di bawah layar kalau berhasil
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("All notifications marked as read"),
@@ -91,16 +116,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
           )
         ],
       ),
-      body: notifications.isEmpty
-          ? _buildEmptyState(primaryColor)
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: notifications.length,
-              itemBuilder: (context, index) {
-                final notif = notifications[index];
-                return _buildNotificationCard(notif);
-              },
-            ),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator(color: primaryColor)) // Muncul loading muter
+          : notifications.isEmpty
+              ? _buildEmptyState(primaryColor)
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: notifications.length,
+                  itemBuilder: (context, index) {
+                    final notif = notifications[index];
+                    return _buildNotificationCard(notif);
+                  },
+                ),
     );
   }
 

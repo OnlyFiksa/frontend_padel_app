@@ -114,6 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const Text('Username', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
                         const SizedBox(height: 8),
                         TextFormField(
+                          key: const Key('username_field'),
                           controller: _usernameOrEmailController,
                           decoration: _inputDecoration(Icons.person_outline, 'Masukkan Username'),
                           validator: (value) => value!.isEmpty ? 'Username tidak boleh kosong' : null,
@@ -129,6 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 8),
                         TextFormField(
+                          key: const Key('password_field'),
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: _inputDecoration(Icons.lock, '••••••••').copyWith(
@@ -146,6 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: double.infinity,
                           height: 54, // Set tinggi tetap agar tidak lompat saat loading
                           child: ElevatedButton(
+                            key: const Key('login_button'),
                             onPressed: _isLoading ? null : _handleLogin, // Disable jika loading
                             style: ElevatedButton.styleFrom(
                               backgroundColor: primaryColor,
